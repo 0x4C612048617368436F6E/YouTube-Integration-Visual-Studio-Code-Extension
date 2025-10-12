@@ -9,19 +9,37 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:youtubeintegration.YoutubeIntegration",
+    "onCommand:youtubeintegration.currentTime"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "youtubeintegration.YoutubeIntegration",
-        "title": "Yotube"
-      },
-      {
-        "command": "youtubeintegration.currentTime",
-        "title": "currentTime"
+        "title": "YouTube"
       }
-    ]
+    ],
+    "views": {
+      "YoutubeIntegration": [
+        {
+          "type": "webview",
+          "id": "YouTube.Test",
+          "name": "",
+          "icon": ""
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "YoutubeIntegration",
+          "title": "YOUTUBE",
+          "icon": "./resources/youtube_black.svg"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
