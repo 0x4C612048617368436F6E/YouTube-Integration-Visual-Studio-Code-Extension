@@ -19,6 +19,14 @@
       {
         "command": "youtubeintegration.YoutubeIntegration",
         "title": "YouTube"
+      },
+      {
+        "command": "youtubeintegration.GETKEY",
+        "title": ""
+      },
+      {
+        "command": "youtubeintegration.SETKEY",
+        "title": ""
       }
     ],
     "views": {

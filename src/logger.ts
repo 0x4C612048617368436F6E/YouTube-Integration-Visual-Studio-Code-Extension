@@ -1,0 +1,3 @@
+//simple logger
+
+class Logger {}

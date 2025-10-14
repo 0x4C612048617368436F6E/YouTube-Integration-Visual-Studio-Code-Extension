@@ -32,27 +32,75 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 const vscode = __importStar(require("vscode"));
+const axios_1 = __importDefault(require("axios"));
+const authSetting_1 = __importDefault(require("./authSetting"));
 //create custom class that implement webviewViewProvider
 class YoutubeIntegration {
     extensionUri;
+    token;
     static _viewType = "YouTube.Test";
     _view;
     _extensionUri;
-    constructor(extensionUri) {
+    _token;
+    constructor(extensionUri, token) {
         this.extensionUri = extensionUri;
+        this.token = token;
         this._extensionUri = extensionUri;
+        this._token = token;
     }
     resolveWebviewView(webviewView, context, token) {
         (webviewView.webview.options = {
             enableScripts: true,
         }),
             (webviewView.webview.html = this.returnHTML(webviewView));
+        webviewView.webview.onDidReceiveMessage((message) => {
+            const customAxiosProperties = {
+                baseURL: "https://youtube.googleapis.com/youtube/v3/",
+                timeout: 0,
+                headers: {
+                    Authorization: `Bearer:${process.env.API_KEY}`,
+                },
+            };
+            const customAxios = axios_1.default.create(customAxiosProperties);
+            //store next Page Toke
+            let nextPageToken = "";
+            switch (message.command) {
+                case "initialRequest":
+                    //most popular videos (including all)
+                    const mostPopularVideosURL = nextPageToken.trim().length <= 0
+                        ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${process.env.API_KEY}`
+                        : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${process.env.API_KEY}`;
+                    let mostPopularVideos = undefined;
+                    customAxios
+                        .get(mostPopularVideosURL)
+                        .then((res) => {
+                        mostPopularVideos = res;
+                    })
+                        .catch((e) => {
+                        console.error("An error occured: ", e);
+                    })
+                        .finally(() => {
+                        console.log("Request finished");
+                    });
+                    //pass token to webview as first
+                    //we will be using message passing some where
+                    //send final response back to webview
+                    break;
+                case "test":
+                    console.log(message.text);
+                    vscode.window.showInformationMessage(message.text);
+                    break;
+            }
+        });
     }
     //From documentation:
     //This means that in order to load images, stylesheets, and other resources from your extension, or to load any content from the user's current workspace, you must use the Webview.asWebviewUri function to convert a local file: URI into a special URI that VS Code can use to load a subset of local resources.
@@ -65,13 +113,16 @@ class YoutubeIntegration {
         const search = vscode.Uri.joinPath(this._extensionUri, "media", "../resources/white_search.svg");
         //get special URI to use with webview
         const search_src = webviewView.webview.asWebviewUri(search);
-        //below is for the javascript
-        const _javascript = vscode.Uri.joinPath(this._extensionUri, "media", "../resources/youtubeintegrationlogic.js");
-        //get special URI to use with webview]
-        const _javascript_src = webviewView.webview.asWebviewUri(_javascript);
-        return [general_src, search_src, _javascript];
+        return [general_src, search_src];
     }
-    //we will be using message passing some where
+    //be used when API response gets back
+    returnHTMLVideo(values) {
+        return `<div class="videos">
+      <div class="video">
+        <div class="thumbnail"></div>
+        <div class="video-info">Sample Video 1</div>
+      </div>`;
+    }
     returnHTML(webviewView) {
         let [general, search] = this.getAllLocalResources(webviewView);
         return `<!DOCTYPE html>
@@ -93,11 +144,11 @@ class YoutubeIntegration {
     </header>
 
     <div class="categories">
-      <div class="category active">All</div>
-      <div class="category">Music</div>
-      <div class="category">Entertainment</div>
-      <div class="category">Technology</div>
-      <div class="category">Gaming</div>
+      <div class="category active_all">All</div>
+      <div class="category active_music">Music</div>
+      <div class="category active_entertainment">Entertainment</div>
+      <div class="category active_technology">Technology</div>
+      <div class="category active_gaming">Gaming</div>
     </div>
 
     <div class="videos">
@@ -116,27 +167,71 @@ class YoutubeIntegration {
     </div>
 
 	<script>
+		//access VScode API object
+		const vscode = acquireVsCodeApi();
 		console.log("Checking... Are you sure");
 
 		let search = null;
 		let searchButton = null;
+		let videos = null;
+		let all = null;
+		let music = null;
+		let entertainment = null;
+		let technology = null;
+		let gaming = null;
 		try {
 			let currentSearchValue = "";
 
   			search = document.querySelector(".Search");
-  			searchButton = document.querySelector("#search-button");
+  			
+			searchButton = document.querySelector("#search-button");
+			
+			videos = document.querySelector(".videos");
+			
+			all = document.querySelector(".active_all");
 
-  			if (!search || !searchButton) throw "Unable to find element";
+			music = document.querySelector(".active_music");
+
+			entertainment = document.querySelector(".active_entertainment");
+
+			technology = document.querySelector(".active_technology");
+
+			gaming = document.querySelector(".active_gaming");
+
+  			if (!search || !searchButton || !videos ||!all || !music || !entertainment || !technology || !gaming) throw "Unable to find element";
 
 			console.log("All good");
 
+			//add event listner for when we receive message from extension
+			window.addEventListener("message"(event)=>{
+				console.log(event);
+			})
+
 			//add event listner to search-button
-			searchButton.addEventListener("click", (e) => {
+			searchButton.addEventListener("click", () => {
 				//get the current value from search
   				currentSearchValue = search.value;
-				//make sure that is search value is empty string, no request is made
-				console.log("Value is",currentSearchValue);
+				//make sure that is search value is empty string, no request is made. if the length is 0, then we do not do anything
+				
+				if((currentSearchValue.trim()).length > 0){
+					console.log(currentSearchValue);
+					vscode.postMessage(
+					{
+						command:"test",
+						text:"Hello world"
+					}
+					)
+				}
+				
 			});
+
+			//add event listner to videos
+			//add event listner to all
+			//add event listner to music
+			//add event listner to entertainment
+			//add event listner to technology
+			//add event listner to gaming
+
 
 		} catch (e) {
   			console.error("An error occured: ", e);
@@ -149,6 +244,14 @@ class YoutubeIntegration {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 function activate(context) {
+    //Initialise and get current instance of instance
+    authSetting_1.default.init(context);
+    const settings = authSetting_1.default.instance;
+    //immediately check if API key is embeeded
+    let token = undefined;
+    (async () => {
+        token = await settings.getAuthData();
+    })();
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
     //vscode.window.showErrorMessage()
@@ -160,7 +263,7 @@ function activate(context) {
         //       // The code you place here will be executed every time your command is executed
         //       // Display a message box to the user
         if (!trackRegisteredView.has("YouTube.Test")) {
-            const provider = new YoutubeIntegration(context.extensionUri);
+            const provider = new YoutubeIntegration(context.extensionUri, token);
             const webView = vscode.window.registerWebviewViewProvider("YouTube.Test", provider);
             trackRegisteredView.add("YouTube.Test");
             context.subscriptions.push(webView);
@@ -172,7 +275,7 @@ function activate(context) {
     });
     //Check if view already registered
     if (!trackRegisteredView.has("YouTube.Test")) {
-        const provider = new YoutubeIntegration(context.extensionUri);
+        const provider = new YoutubeIntegration(context.extensionUri, token);
         const webView = vscode.window.registerWebviewViewProvider("YouTube.Test", provider);
         trackRegisteredView.add("YouTube.Test");
         context.subscriptions.push(webView);
