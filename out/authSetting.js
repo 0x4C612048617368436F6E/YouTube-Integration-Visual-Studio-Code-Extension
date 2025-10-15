@@ -32,6 +32,16 @@ class AuthSetting {
             */
         return await this.secretStorage.get("APIKEY");
     }
+    //https://code.visualstudio.com/api/references/vscode-api#SecretStorage
+    //deletes
+    async delete() {
+        try {
+            await this.secretStorage.delete("APIKEY");
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
 }
 exports.default = AuthSetting;
 //# sourceMappingURL=authSetting.js.map

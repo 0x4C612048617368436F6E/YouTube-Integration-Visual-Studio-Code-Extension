@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import axios from "axios";
 import AuthSetting from "./authSetting";
-import { UnderlyingSink } from "stream/web";
+import { text } from "stream/consumers";
 
 //create custom class that implement webviewViewProvider
 
@@ -12,14 +12,17 @@ class YoutubeIntegration implements vscode.WebviewViewProvider {
 
   private _view?: vscode.WebviewView;
   private readonly _extensionUri: any;
-  private readonly _token: string | undefined;
+  private _token: string | undefined;
+  private readonly _setting: any;
 
   public constructor(
     private readonly extensionUri: any,
-    private readonly token: string | undefined
+    private token: string | undefined,
+    private readonly setting: any
   ) {
     this._extensionUri = extensionUri;
     this._token = token;
+    this._setting = setting;
   }
 
   resolveWebviewView(
@@ -32,42 +35,84 @@ class YoutubeIntegration implements vscode.WebviewViewProvider {
     }),
       (webviewView.webview.html = this.returnHTML(webviewView));
 
-    webviewView.webview.onDidReceiveMessage((message) => {
-      const customAxiosProperties = {
-        baseURL: "https://youtube.googleapis.com/youtube/v3/",
-        timeout: 0,
-        headers: {
-          Authorization: `Bearer:${process.env.API_KEY}`,
-        },
-      };
+    //will be the first we send. Now there might actually be an API key, but what is the API key is invalid. pass token to webview as first
+    webviewView.webview.postMessage({
+      command: "IS_API_KEY_VALID",
+      text: this._token,
+    });
 
-      const customAxios = axios.create(customAxiosProperties);
+    webviewView.webview.onDidReceiveMessage((message) => {
       //store next Page Toke
       let nextPageToken = "";
       switch (message.command) {
-        case "initialRequest":
+        case "NO_API_KEY":
+          //prompt user to enter API KEY
+          (async (): Promise<void> => {
+            //delete previous value
+            await this._setting.delete();
+            const tokenInput: string | undefined =
+              await vscode.window.showInputBox();
+
+            await this._setting.storeAuthData(tokenInput);
+
+            //after getting API key and storing it, we now get the API key
+            this._token = await this._setting.getAuthData();
+            //send message back to webview using message passing
+            webviewView.webview.postMessage({
+              command: "IS_API_KEY_VALID",
+              text: this._token,
+            });
+            return;
+          })();
+        case "API_KEY_DETECTED":
+          const customAxiosProperties = {
+            baseURL: "https://youtube.googleapis.com/youtube/v3/",
+            timeout: 0,
+            headers: {
+              Bearer: this._token,
+            },
+          };
+
+          const customAxios = axios.create(customAxiosProperties);
           //most popular videos (including all)
           const mostPopularVideosURL =
             nextPageToken.trim().length <= 0
-              ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${process.env.API_KEY}`
-              : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${process.env.API_KEY}`;
+              ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
+              : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
 
           let mostPopularVideos = undefined;
+
           customAxios
             .get(mostPopularVideosURL)
             .then((res) => {
               mostPopularVideos = res;
             })
             .catch((e) => {
-              console.error("An error occured: ", e);
+              if (e.response) {
+                //console.log("Error object: ", e.response.data);
+                //get error status
+                const status = e.response.data.error.code;
+                console.log(status);
+                //send back to webview
+                //invalidate token since not correct
+                this._token = undefined;
+                // webviewView.webview.postMessage({
+                //   command: "IS_API_KEY_VALID",
+                //   text: this._token,
+                // });
+              } else if (e.request) {
+                console.log(e.request);
+              } else {
+                console.log("Something else");
+              }
             })
             .finally(() => {
               console.log("Request finished");
             });
-          //pass token to webview as first
 
           //we will be using message passing some where
           //send final response back to webview
+          console.log("Some stuff: ", mostPopularVideos);
 
           break;
         case "test":
@@ -112,7 +157,8 @@ class YoutubeIntegration implements vscode.WebviewViewProvider {
 
   private returnHTML(webviewView: vscode.WebviewView): string {
     let [general, search] = this.getAllLocalResources(webviewView);
-    return `<!DOCTYPE html>
+    return `
+	<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -139,93 +185,141 @@ class YoutubeIntegration implements vscode.WebviewViewProvider {
     </div>
 
     <div class="videos">
-      <div class="video">
-        <div class="thumbnail"></div>
-        <div class="video-info">Sample Video 1</div>
-      </div>
-      <div class="video">
-        <div class="thumbnail"></div>
-        <div class="video-info">Sample Video 2</div>
-      </div>
-      <div class="video">
-        <div class="thumbnail"></div>
-        <div class="video-info">Sample Video 3</div>
-      </div>
+      
     </div>
 
 	<script>
 		//access VScode API object
-		const vscode = acquireVsCodeApi();
-		console.log("Checking... Are you sure");
+const vscode = acquireVsCodeApi();
+console.log("Checking... Are you sure");
 
-		let search = null;
-		let searchButton = null;
-		let videos = null;
-		let all = null;
-		let music = null;
-		let entertainment = null;
-		let technology = null;
-		let gaming = null;
-		try {
-			let currentSearchValue = "";
+let search = null;
+let searchButton = null;
+let videos = null;
+let all = null;
+let music = null;
+let entertainment = null;
+let technology = null;
+let gaming = null;
+try {
+  let currentSearchValue = "";
 
-  			search = document.querySelector(".Search");
-  			
-			searchButton = document.querySelector("#search-button");
-			
-			videos = document.querySelector(".videos");
-			
-			all = document.querySelector(".active_all");
+  search = document.querySelector(".Search");
 
-			music = document.querySelector(".active_music");
+  searchButton = document.querySelector("#search-button");
 
-			entertainment = document.querySelector(".active_entertainment");
+  videos = document.querySelector(".videos");
 
-			technology = document.querySelector(".active_technology");
+  all = document.querySelector(".active_all");
 
-			gaming = document.querySelector(".active_gaming");
+  music = document.querySelector(".active_music");
 
-  			if (!search || !searchButton || !videos ||!all || !music || !entertainment || !technology || !gaming) throw "Unable to find element";
+  entertainment = document.querySelector(".active_entertainment");
 
-			console.log("All good");
+  technology = document.querySelector(".active_technology");
 
-			//add event listner for when we receive message from extension
-			window.addEventListener("message"(event)=>{
-				console.log(event);
-			})
+  gaming = document.querySelector(".active_gaming");
 
-			//add event listner to search-button
-			searchButton.addEventListener("click", () => {
-				//get the current value from search
-  				currentSearchValue = search.value;
-				//make sure that is search value is empty string, no request is made. if the length is 0, then we do not do anything
-				
-				if((currentSearchValue.trim()).length > 0){
-					console.log(currentSearchValue);
-					vscode.postMessage(
-					{
-						command:"test",
-						text:"Hello world"
-					}
-					)
-				}
-				
-			});
+  if (
+    !search ||
+    !searchButton ||
+    !videos ||
+    !all ||
+    !music ||
+    !entertainment ||
+    !technology ||
+    !gaming
+  )
+    throw "Unable to find element";
 
-			//add event listner to videos
-			//add event listner to all
-			//add event listner to music
-			//add event listner to entertainment
-			//add event listner to technology
-			//add event listner to gaming
+  console.log("All good");
+
+  //add event listner for when we receive message from extension
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    switch (message.command) {
+      case "IS_API_KEY_VALID":
+        //below will be based on whether the token is empty or there is value in it
+        const token = message.text;
+        //add new child
+        const node = document.createElement("h3");
+        node.style.fontSize = "15px";
+        node.style.textAlign = "center";
+        node.style.color = "#b7b7b7ff";
+        let textNode = undefined;
+
+        //remove all child element if any
+        for (let i = 0; i < videos.children.length; i++) {
+          videos.removeChild(videos.children[i]);
+        }
+
+        //check if token is undefined
+        if (token != undefined) {
+          console.log("Token is: ", token);
+          if (token.trim().length <= 0) {
+            textNode = document.createTextNode("API KEY NOT DETECTED");
+            node.appendChild(textNode);
+            videos.appendChild(node);
+            //send message back to extension that API KEY NOT DETECTED
+            vscode.postMessage({
+              command: "NO_API_KEY",
+              text: "API KEY NOT DETECTED",
+            });
+          } else {
+            //Maybe an API KEY, but could be invalid
+            textNode = document.createTextNode("Loading more videos...");
+            node.appendChild(textNode);
+            videos.appendChild(node);
+            //send message back to extension that API KEY NOT DETECTED
+            vscode.postMessage({
+              command: "API_KEY_DETECTED",
+              text: "API KEY HAS BEEN Added",
+            });
+          }
+        } else {
+          console.log("Undefined");
+          textNode = document.createTextNode("API KEY NOT DETECTED");
+          node.appendChild(textNode);
+          videos.appendChild(node);
+          //send message back to extension that API KEY NOT DETECTED
+          vscode.postMessage({
+            command: "NO_API_KEY",
+            text: "API KEY NOT DETECTED",
+          });
+        }
+    }
+  });
+
+  //add event listner to search-button
+  searchButton.addEventListener("click", () => {
+    //get the current value from search
+    currentSearchValue = search.value;
+    //make sure that is search value is empty string, no request is made. if the length is 0, then we do not do anything
+
+    if (currentSearchValue.trim().length > 0) {
+      console.log(currentSearchValue);
+      vscode.postMessage({
+        command: "test",
+        text: "Hello world",
+      });
+    }
+  });
+
+  //add event listner to videos
+  //add event listner to all
+  //add event listner to music
+  //add event listner to entertainment
+  //add event listner to technology
+  //add event listner to gaming
+} catch (e) {
+  console.error("An error occured: ", e);
+}
 
 
-		} catch (e) {
-  			console.error("An error occured: ", e);
-		}
 	</script>
   </body>
-</html>`;
+</html>
+	`;
   }
 }
 
@@ -256,7 +350,11 @@ export function activate(context: vscode.ExtensionContext) {
       //       // The code you place here will be executed every time your command is executed
       //       // Display a message box to the user
       if (!trackRegisteredView.has("YouTube.Test")) {
-        const provider = new YoutubeIntegration(context.extensionUri, token);
+        const provider = new YoutubeIntegration(
+          context.extensionUri,
+          token,
+          settings
+        );
         const webView = vscode.window.registerWebviewViewProvider(
           "YouTube.Test",
           provider
@@ -271,13 +369,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
   //Check if view already registered
   if (!trackRegisteredView.has("YouTube.Test")) {
-    const provider = new YoutubeIntegration(context.extensionUri, token);
+    const provider = new YoutubeIntegration(
+      context.extensionUri,
+      token,
+      settings
+    );
     const webView = vscode.window.registerWebviewViewProvider(
       "YouTube.Test",
       provider
     );
     trackRegisteredView.add("YouTube.Test");
     context.subscriptions.push(webView);
+    //send initial message to webView
   } else {
     console.log("View already registered");
     vscode.window.showWarningMessage("View has already been registered");

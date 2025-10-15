@@ -34,4 +34,14 @@ export default class AuthSetting {
         */
     return await this.secretStorage.get("APIKEY");
   }
+
+  //https://code.visualstudio.com/api/references/vscode-api#SecretStorage
+  //deletes
+  async delete(): Promise<void> {
+    try {
+      await this.secretStorage.delete("APIKEY");
+    } catch (e) {
+      console.error(e);
+    }
+  }
 }
