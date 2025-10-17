@@ -65,35 +65,67 @@ header {
   transition: background-color 0.2s;
 }
 
-.category:hover {
+/* .category:hover {
+  background-color: #505050;
+} */
+
+.notCurrentTab:hover {
   background-color: #505050;
 }
 
-.category.active_all {
+.currentTab {
   background-color: white;
   color: black;
 }
 
-/* Video Grid */
-.videos {
-  /*display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+.videosStyle {
+  display: grid;
+  /* Slightly larger min width, smoother transitions */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
-  padding: 16px;*/
+  padding: 16px;
+  transition: all 0.2s ease-in-out;
+}
+
+/* When the window is narrow, reduce min width gracefully */
+@media (max-width: 800px) {
+  .videosStyle {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .videosStyle {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+.h3Node {
+  font-size: 15px;
+  text-align: center;
+  color: #b7b7b7ff;
 }
 
 .video {
-  background-color: #181818;
+  /*background-color: #181818;*/
   border-radius: 10px;
   overflow: hidden;
 }
 
 .thumbnail {
   background-color: #333;
-  height: 120px;
+  height: 150px;
+}
+
+.thumbnail:hover {
+  cursor: pointer;
 }
 
 .video-info {
   padding: 8px;
   font-size: 14px;
+}
+
+.video-info:hover {
+  cursor: pointer;
 }

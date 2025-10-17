@@ -67,6 +67,7 @@ class YoutubeIntegration {
         }),
             (webviewView.webview.html = this.returnHTML(webviewView));
         //will be the first we send. Now there might actually be an API key, but what is the API key is invalid. pass token to webview as first
+        console.log("Does this execute");
         webviewView.webview.postMessage({
             command: "IS_API_KEY_VALID",
             text: this._token,
@@ -79,7 +80,7 @@ class YoutubeIntegration {
                     //prompt user to enter API KEY
                     (async () => {
                         //delete previous value
-                        await this._setting.delete();
+                        //await this._setting.delete();
                         const tokenInput = await vscode.window.showInputBox();
                         await this._setting.storeAuthData(tokenInput);
                         //after getting API key and storing it, we now get the API key
@@ -91,6 +92,7 @@ class YoutubeIntegration {
                         });
                         return;
                     })();
+                    break;
                 case "API_KEY_DETECTED":
                     const customAxiosProperties = {
                         baseURL: "https://youtube.googleapis.com/youtube/v3/",
@@ -104,13 +106,34 @@ class YoutubeIntegration {
                     const mostPopularVideosURL = nextPageToken.trim().length <= 0
                         ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
                         : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
-                    let mostPopularVideos = undefined;
+                    const musicVideosURL = nextPageToken.trim().length <= 0
+                        ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
+                        : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
+                    const entertainmentVideosURL = nextPageToken.trim().length <= 0
+                        ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
+                        : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
+                    const technologyVideosURL = nextPageToken.trim().length <= 0
+                        ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
+                        : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
+                    const gamingVideosURL = nextPageToken.trim().length <= 0
+                        ? `videos?part=snippet&maxResults=10&rate=viewCount&chart=mostPopular&type=video&key=${this._token}`
+                        : `videos?part=snippet&maxResults=10&rate=viewCount&pageToken=${nextPageToken}&chart=mostPopular&type=video&key=${this._token}`;
                     customAxios
                         .get(mostPopularVideosURL)
                         .then((res) => {
+                        let mostPopularVideos = undefined;
                         mostPopularVideos = res;
+                        //we will be using message passing some where
+                        //send final response back to webview
+                        console.log("Some stuff: ", mostPopularVideos);
+                        //Before sending to webview, lets do some preprocessing
+                        let sendResourceToWebView = this.preprocess(mostPopularVideos.data.items);
+                        webviewView.webview.postMessage({
+                            command: "RESOURCE",
+                            text: sendResourceToWebView,
+                        });
                     })
-                        .catch((e) => {
+                        .catch(async (e) => {
                         if (e.response) {
                             //console.log("Error object: ", e.response.data);
                             //get error status
@@ -119,10 +142,10 @@ class YoutubeIntegration {
                             //send back to webview
                             //invalidate token since not correct
                             this._token = undefined;
-                            // webviewView.webview.postMessage({
-                            //   command: "IS_API_KEY_VALID",
-                            //   text: this._token,
-                            // });
+                            webviewView.webview.postMessage({
+                                command: "IS_API_KEY_VALID",
+                                text: this._token,
+                            });
                         }
                         else if (e.request) {
                             console.log(e.request);
@@ -134,16 +157,28 @@ class YoutubeIntegration {
                         .finally(() => {
                         console.log("Request finished");
                     });
-                    //we will be using message passing some where
-                    //send final response back to webview
-                    console.log("Some stuff: ", mostPopularVideos);
                     break;
                 case "test":
                     console.log(message.text);
                     vscode.window.showInformationMessage(message.text);
                     break;
+                default:
+                    console.log("Not correct");
             }
         });
+    }
+    preprocess(items) {
+        //preprocess given item and only include relevant information
+        let preprocessedItem = [];
+        for (let i = 0; i < items.length; i++) {
+            preprocessedItem.push(new Object({
+                title: items[i].snippet.title,
+                //send multiple thumbnail to use depending on screen size
+                thumbnail: items[i].snippet.thumbnails,
+                //items[i].snippet.thumbnail
+            }));
+        }
+        return preprocessedItem;
     }
     //From documentation:
     //This means that in order to load images, stylesheets, and other resources from your extension, or to load any content from the user's current workspace, you must use the Webview.asWebviewUri function to convert a local file: URI into a special URI that VS Code can use to load a subset of local resources.
@@ -157,14 +192,6 @@ class YoutubeIntegration {
         //get special URI to use with webview
         const search_src = webviewView.webview.asWebviewUri(search);
         return [general_src, search_src];
-    }
-    //be used when API response gets back
-    returnHTMLVideo(values) {
-        return `<div class="videos">
-      <div class="video">
-        <div class="thumbnail"></div>
-        <div class="video-info">Sample Video 1</div>
-      </div>`;
     }
     returnHTML(webviewView) {
         let [general, search] = this.getAllLocalResources(webviewView);
@@ -200,7 +227,7 @@ class YoutubeIntegration {
     </div>
 
 	<script>
-		//access VScode API object
+//access VScode API object
 const vscode = acquireVsCodeApi();
 console.log("Checking... Are you sure");
 
@@ -212,6 +239,8 @@ let music = null;
 let entertainment = null;
 let technology = null;
 let gaming = null;
+let currentTabPointer;
+
 try {
   let currentSearchValue = "";
 
@@ -243,20 +272,37 @@ try {
   )
     throw "Unable to find element";
 
-  console.log("All good");
+  let listOfTabs = [all, music, entertainment, technology, gaming];
+  let allVideos = [];
+  let musicVideos = [];
+  let entertainmentVideos = [];
+  let technologyVideos = [];
+  let gamingVideos = [];
+
+  //add currentTab class to the all tab
+  if (!all.classList.contains("currentTab")) {
+    all.classList.add("currentTab");
+    currentTabPointer = "all";
+    listOfTabs.forEach((item) => {
+      if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+        if (!item.classList.contains("notCurrentTab")) {
+          item.classList.add("notCurrentTab");
+        }
+      }
+    });
+  }
 
   //add event listner for when we receive message from extension
   window.addEventListener("message", (event) => {
     const message = event.data;
     switch (message.command) {
       case "IS_API_KEY_VALID":
+        console.log("First Pass");
         //below will be based on whether the token is empty or there is value in it
         const token = message.text;
         //add new child
         const node = document.createElement("h3");
-        node.style.fontSize = "15px";
-        node.style.textAlign = "center";
-        node.style.color = "#b7b7b7ff";
+        node.className = "h3Node";
         let textNode = undefined;
 
         //remove all child element if any
@@ -288,7 +334,7 @@ try {
             });
           }
         } else {
-          console.log("Undefined");
+          console.log("TOKEN: ", token);
           textNode = document.createTextNode("API KEY NOT DETECTED");
           node.appendChild(textNode);
           videos.appendChild(node);
@@ -298,7 +344,93 @@ try {
             text: "API KEY NOT DETECTED",
           });
         }
+      case "RESOURCE":
+        //reset textNode -  delete all children element videos
+        for (let i = 0; i < videos.children.length; i++) {
+          videos.removeChild(videos.children[i]);
+        }
+
+        //add the CSS properties to parent div that holds the video
+        let resources = message.text;
+        console.log("Resources: ", typeof resources);
+        console.log("Actual Resources: ", resources);
+        //loop through the given array and are return array of the videos
+        //Could
+        let videoArray = resources.map((item) => {
+          //create video nodes for each
+          let videoNode = document.createElement("div");
+          videoNode.className = "video";
+          //create thumbnail div
+          let thumbnailNode = document.createElement("div");
+          thumbnailNode.className = "thumbnail";
+          //create image for thumbnail
+          let thumbnailImage = document.createElement("img");
+          //Seems like some image URL might not exist, check which exist
+          if (item.thumbnail?.maxres) {
+            thumbnailImage.src = item.thumbnail.maxres.url;
+          } else if (item.thumbnail?.high) {
+            thumbnailImage.src = item.thumbnail.high.url;
+          } else if (item.thumbnail?.medium) {
+            thumbnailImage.src = item.thumbnail.medium.url;
+          } else if (item.thumbnail?.standard) {
+            thumbnailImage.src = item.thumbnail.standard.url;
+          } else {
+            //default
+            thumbnailImage.src = item.thumbnail.default.url;
+          }
+          thumbnailImage.width = 1280;
+          thumbnailImage.height = 720;
+          //append thumbmailImage to thumbnail
+          thumbnailNode.appendChild(thumbnailImage);
+
+          //append thumbnailNode to video
+          videoNode.appendChild(thumbnailNode);
+
+          //create video info node
+          let videoInfoNode = document.createElement("div");
+          videoInfoNode.className = "video-info";
+          //create title node
+          let title = document.createElement("p");
+          title.innerText = item.title;
+          videoInfoNode.appendChild(title);
+
+          //append videoInfoNode to video
+          videoNode.appendChild(videoInfoNode);
+          return videoNode;
+        });
+        videos.className = "videosStyle";
+        videoArray.forEach((item) => {
+          videos.appendChild(item);
+        });
     }
+  });
+
+  //add event listnere for webView window change
+  window.addEventListener("resize", () => {
+    //No point in doing this, but lets leave it just in case we need something
+  });
+
+  let isMax = false;
+  const timoutInterleaved = 200;
+  let timeout;
+  //add event listener for scrolling
+  window.addEventListener("scroll", () => {
+    const maxScrollY =
+      document.documentElement.scrollHeight - window.innerHeight;
+    //check if we have reached end of page (Will then make request)
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      //Get current window.scrollY+window.innerHeight
+      if (
+        window.scrollY + window.innerHeight >=
+        document.documentElement.scrollHeight
+      ) {
+        if (!isMax) {
+          console.log("Has Reached Max");
+        }
+        isMax = true;
+      }
+    }, timoutInterleaved);
   });
 
   //add event listner to search-button
@@ -316,12 +448,143 @@ try {
     }
   });
 
-  //add event listner to videos
+  //add event listner to videos (Think this is done)
+
   //add event listner to all
+  all.addEventListener("click", () => {
+    //have a pointer to check what section current on
+    if (currentTabPointer == "all") {
+      //Retrieve data from 'all specfic array' (No need to change CSS)
+    } else {
+      //Retrieve data from 'all specfic array' (change CSS)
+      currentTabPointer = "all";
+
+      //add currentTab class to the all tab
+      if (!all.classList.contains("currentTab")) {
+        all.classList.add("currentTab");
+        all.classList.remove("notCurrentTab");
+        listOfTabs.forEach((item) => {
+          if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+            if (item.classList.contains("currentTab")) {
+              item.classList.remove("currentTab");
+              if (!item.classList.contains("notCurrentTab")) {
+                item.classList.add("notCurrentTab");
+              }
+            }
+          }
+        });
+      }
+    }
+  });
+
   //add event listner to music
+  music.addEventListener("click", () => {
+    //have a pointer to check what section current on
+    if (currentTabPointer == "music") {
+      //Retrieve data from 'music specfic array' (No need to change CSS)
+    } else {
+      //Retrieve data from 'music specfic array' (change CSS)
+      currentTabPointer = "music";
+
+      //add currentTab class to the music tab
+      if (!music.classList.contains("currentTab")) {
+        music.classList.add("currentTab");
+        music.classList.remove("notCurrentTab");
+        listOfTabs.forEach((item) => {
+          if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+            if (item.classList.contains("currentTab")) {
+              item.classList.remove("currentTab");
+              if (!item.classList.contains("notCurrentTab")) {
+                item.classList.add("notCurrentTab");
+              }
+            }
+          }
+        });
+      }
+    }
+  });
+
   //add event listner to entertainment
+  entertainment.addEventListener("click", () => {
+    //have a pointer to check what section current on
+    if (currentTabPointer == "entertainment") {
+      //Retrieve data from 'entertainment specfic array' (No need to change CSS)
+    } else {
+      //Retrieve data from 'entertainment specfic array' (change CSS)
+      currentTabPointer = "entertainment";
+
+      //add currentTab class to the entertainment tab
+      if (!entertainment.classList.contains("currentTab")) {
+        entertainment.classList.add("currentTab");
+        entertainment.classList.remove("notCurrentTab");
+        listOfTabs.forEach((item) => {
+          if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+            if (item.classList.contains("currentTab")) {
+              item.classList.remove("currentTab");
+              if (!item.classList.contains("notCurrentTab")) {
+                item.classList.add("notCurrentTab");
+              }
+            }
+          }
+        });
+      }
+    }
+  });
+
   //add event listner to technology
+  technology.addEventListener("click", () => {
+    //have a pointer to check what section current on
+    if (currentTabPointer == "technology") {
+      //Retrieve data from 'technology specfic array' (No need to change CSS)
+    } else {
+      //Retrieve data from 'technology specfic array' (change CSS)
+      currentTabPointer = "technology";
+
+      //add currentTab class to the technology tab
+      if (!technology.classList.contains("currentTab")) {
+        technology.classList.add("currentTab");
+        technology.classList.remove("notCurrentTab");
+        listOfTabs.forEach((item) => {
+          if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+            if (item.classList.contains("currentTab")) {
+              item.classList.remove("currentTab");
+              if (!item.classList.contains("notCurrentTab")) {
+                item.classList.add("notCurrentTab");
+              }
+            }
+          }
+        });
+      }
+    }
+  });
+
   //add event listner to gaming
+  gaming.addEventListener("click", () => {
+    //have a pointer to check what section current on
+    if (currentTabPointer == "gaming") {
+      //Retrieve data from 'gaming specfic array' (No need to change CSS)
+    } else {
+      //Retrieve data from 'gaming specfic array' (change CSS)
+      currentTabPointer = "gaming";
+
+      //add currentTab class to the gaming tab
+      if (!gaming.classList.contains("currentTab")) {
+        gaming.classList.add("currentTab");
+        //remove hover
+        gaming.classList.remove("notCurrentTab");
+        listOfTabs.forEach((item) => {
+          if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
+            if (item.classList.contains("currentTab")) {
+              item.classList.remove("currentTab");
+              if (!item.classList.contains("notCurrentTab")) {
+                item.classList.add("notCurrentTab");
+              }
+            }
+          }
+        });
+      }
+    }
+  });
 } catch (e) {
   console.error("An error occured: ", e);
 }
@@ -384,4 +647,5 @@ function activate(context) {
 function deactivate() {
     console.log("Cleaning up");
 }
+//WHAT????
 //# sourceMappingURL=extension.js.map
