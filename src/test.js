@@ -44,7 +44,7 @@ try {
     throw "Unable to find element";
 
   let listOfTabs = [all, music, entertainment, technology, gaming];
-  let allVideos = [];
+  let allVideos = []; //the trending vidoes (I do not know y I used allVideos)
   let musicVideos = [];
   let entertainmentVideos = [];
   let technologyVideos = [];
@@ -101,6 +101,7 @@ try {
             //send message back to extension that API KEY NOT DETECTED
             vscode.postMessage({
               command: "API_KEY_DETECTED",
+              tab: "ALL",
               text: "API KEY HAS BEEN Added",
             });
           }
@@ -121,12 +122,31 @@ try {
           videos.removeChild(videos.children[i]);
         }
 
+        console.log("Current Tab: ", currentTabPointer);
+
         //add the CSS properties to parent div that holds the video
         let resources = message.text;
         console.log("Resources: ", typeof resources);
         console.log("Actual Resources: ", resources);
         //loop through the given array and are return array of the videos
         //Could
+        if (currentTabPointer === "all" && resources.length > 0) {
+          allVideos = resources;
+        } else if (currentTabPointer === "music" && resources.length > 0) {
+          musicVideos = resources;
+        } else if (
+          currentTabPointer === "entertainment" &&
+          resources.length > 0
+        ) {
+          entertainmentVideos = resources;
+        } else if (currentTabPointer === "technology" && resources.length > 0) {
+          technologyVideos = resources;
+        } else if (currentTabPointer === "gaming" && resources.length > 0) {
+          gamingVideos = resources;
+        } else {
+          throw "An error occured";
+        }
+        //based on what value currentTabPointer is then use
         let videoArray = resources.map((item) => {
           //create video nodes for each
           let videoNode = document.createElement("div");
@@ -246,6 +266,15 @@ try {
         });
       }
     }
+    //no need to make request again, simply use the data stored within the array
+    console.log("allVideos Length: ", allVideos.length);
+    if (allVideos.length <= 0) {
+      vscode.postMessage({
+        command: "API_KEY_DETECTED",
+        tab: "ALL",
+        text: "Lets get some music",
+      });
+    }
   });
 
   //add event listner to music
@@ -272,6 +301,16 @@ try {
           }
         });
       }
+    }
+
+    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
+    console.log("musicVideos Length: ", musicVideos.length);
+    if (musicVideos.length <= 0) {
+      vscode.postMessage({
+        command: "API_KEY_DETECTED",
+        tab: "MUSIC",
+        text: "Lets get some music",
+      });
     }
   });
 
@@ -300,6 +339,16 @@ try {
         });
       }
     }
+
+    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
+    console.log("entertainmentVideos Length: ", entertainmentVideos.length);
+    if (entertainmentVideos.length <= 0) {
+      vscode.postMessage({
+        command: "API_KEY_DETECTED",
+        tab: "ENTERTAINMENT",
+        text: "Lets get some entertainment",
+      });
+    }
   });
 
   //add event listner to technology
@@ -326,6 +375,16 @@ try {
           }
         });
       }
+    }
+
+    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
+    console.log("entertainmentVideos length: ", entertainmentVideos.length);
+    if (technologyVideos.length <= 0) {
+      vscode.postMessage({
+        command: "API_KEY_DETECTED",
+        tab: "TECHNOLOGY",
+        text: "Lets get some technology",
+      });
     }
   });
 
@@ -354,6 +413,16 @@ try {
           }
         });
       }
+    }
+
+    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
+    console.log("Gaming length: ", gamingVideos.length);
+    if (gamingVideos.length <= 0) {
+      vscode.postMessage({
+        command: "API_KEY_DETECTED",
+        tab: "GAMING",
+        text: "Lets get some gaming",
+      });
     }
   });
 } catch (e) {
