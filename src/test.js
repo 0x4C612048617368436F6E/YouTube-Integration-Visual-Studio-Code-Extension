@@ -45,11 +45,15 @@ try {
 
   let listOfTabs = [all, music, entertainment, technology, gaming];
   let allVideos = []; //the trending vidoes (I do not know y I used allVideos)
+  let allVideosTracker = 0;
   let musicVideos = [];
+  let musicVideosTracker = 0;
   let entertainmentVideos = [];
+  let entertainmentVideosTracker = 0;
   let technologyVideos = [];
+  let technologyVideosTracker = 0;
   let gamingVideos = [];
-
+  let gamingVideosTracker = 0;
   //add currentTab class to the all tab
   if (!all.classList.contains("currentTab")) {
     all.classList.add("currentTab");
@@ -68,7 +72,6 @@ try {
     const message = event.data;
     switch (message.command) {
       case "IS_API_KEY_VALID":
-        console.log("First Pass");
         //below will be based on whether the token is empty or there is value in it
         const token = message.text;
         //add new child
@@ -83,7 +86,6 @@ try {
 
         //check if token is undefined
         if (token != undefined) {
-          console.log("Token is: ", token);
           if (token.trim().length <= 0) {
             textNode = document.createTextNode("API KEY NOT DETECTED");
             node.appendChild(textNode);
@@ -106,7 +108,6 @@ try {
             });
           }
         } else {
-          console.log("TOKEN: ", token);
           textNode = document.createTextNode("API KEY NOT DETECTED");
           node.appendChild(textNode);
           videos.appendChild(node);
@@ -122,14 +123,9 @@ try {
           videos.removeChild(videos.children[i]);
         }
 
-        console.log("Current Tab: ", currentTabPointer);
-
         //add the CSS properties to parent div that holds the video
         let resources = message.text;
-        console.log("Resources: ", typeof resources);
-        console.log("Actual Resources: ", resources);
         //loop through the given array and are return array of the videos
-        //Could
         if (currentTabPointer === "all" && resources.length > 0) {
           allVideos = resources;
         } else if (currentTabPointer === "music" && resources.length > 0) {
@@ -147,7 +143,21 @@ try {
           throw "An error occured";
         }
         //based on what value currentTabPointer is then use
-        let videoArray = resources.map((item) => {
+        let mappedResources =
+          currentTabPointer === "all"
+            ? allVideos
+            : currentTabPointer === "music"
+            ? musicVideos
+            : currentTabPointer === "entertainment"
+            ? entertainmentVideos
+            : currentTabPointer === "technology"
+            ? technologyVideos
+            : currentTabPointer === "gaming"
+            ? gamingVideos
+            : "Error";
+
+        if (mappedResources === "Error") throw "An error occured";
+        let videoArray = mappedResources.map((item) => {
           //create video nodes for each
           let videoNode = document.createElement("div");
           videoNode.className = "video";
@@ -187,6 +197,10 @@ try {
 
           //append videoInfoNode to video
           videoNode.appendChild(videoInfoNode);
+          //add click event
+          videoNode.addEventListener("click", () => {
+            console.log("Video clicked");
+          });
           return videoNode;
         });
         videos.className = "videosStyle";
@@ -231,7 +245,9 @@ try {
     //make sure that is search value is empty string, no request is made. if the length is 0, then we do not do anything
 
     if (currentSearchValue.trim().length > 0) {
-      console.log(currentSearchValue);
+      //convert to URL format
+      const URLFormat = encodeURI(currentSearchValue);
+      console.log(URLFormat);
       vscode.postMessage({
         command: "test",
         text: "Hello world",
@@ -244,8 +260,61 @@ try {
   //add event listner to all
   all.addEventListener("click", () => {
     //have a pointer to check what section current on
-    if (currentTabPointer == "all") {
-      //Retrieve data from 'all specfic array' (No need to change CSS)
+    if (currentTabPointer == "all" && allVideos.length > 0) {
+      //retrieve data but first make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = allVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add event listner for mouse hover
+        videoNode.addEventListener("click", () => {
+          console.log("Cliking on video");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     } else {
       //Retrieve data from 'all specfic array' (change CSS)
       currentTabPointer = "all";
@@ -265,9 +334,63 @@ try {
           }
         });
       }
+
+      //retrieve data but first make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = allVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add event listner for mouse hover
+        videoNode.addEventListener("click", () => {
+          console.log("Cliking on video");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     }
     //no need to make request again, simply use the data stored within the array
-    console.log("allVideos Length: ", allVideos.length);
     if (allVideos.length <= 0) {
       vscode.postMessage({
         command: "API_KEY_DETECTED",
@@ -280,8 +403,61 @@ try {
   //add event listner to music
   music.addEventListener("click", () => {
     //have a pointer to check what section current on
-    if (currentTabPointer == "music") {
-      //Retrieve data from 'music specfic array' (No need to change CSS)
+    if (currentTabPointer == "music" && musicVideos.length > 0) {
+      //retrieve data but first make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = musicVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     } else {
       //Retrieve data from 'music specfic array' (change CSS)
       currentTabPointer = "music";
@@ -301,10 +477,63 @@ try {
           }
         });
       }
-    }
 
-    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
-    console.log("musicVideos Length: ", musicVideos.length);
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = musicVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
+    }
+    //no need to make request again, simply use the data stored within the array
     if (musicVideos.length <= 0) {
       vscode.postMessage({
         command: "API_KEY_DETECTED",
@@ -317,8 +546,64 @@ try {
   //add event listner to entertainment
   entertainment.addEventListener("click", () => {
     //have a pointer to check what section current on
-    if (currentTabPointer == "entertainment") {
-      //Retrieve data from 'entertainment specfic array' (No need to change CSS)
+    if (
+      currentTabPointer == "entertainment" &&
+      entertainmentVideos.length > 0
+    ) {
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = entertainmentVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     } else {
       //Retrieve data from 'entertainment specfic array' (change CSS)
       currentTabPointer = "entertainment";
@@ -338,10 +623,63 @@ try {
           }
         });
       }
-    }
 
-    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
-    console.log("entertainmentVideos Length: ", entertainmentVideos.length);
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = entertainmentVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
+    }
+    //no need to make request again, simply use the data stored within the array
     if (entertainmentVideos.length <= 0) {
       vscode.postMessage({
         command: "API_KEY_DETECTED",
@@ -354,8 +692,61 @@ try {
   //add event listner to technology
   technology.addEventListener("click", () => {
     //have a pointer to check what section current on
-    if (currentTabPointer == "technology") {
-      //Retrieve data from 'technology specfic array' (No need to change CSS)
+    if (currentTabPointer == "technology" && technologyVideos.length > 0) {
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = technologyVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     } else {
       //Retrieve data from 'technology specfic array' (change CSS)
       currentTabPointer = "technology";
@@ -375,15 +766,68 @@ try {
           }
         });
       }
-    }
 
-    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
-    console.log("entertainmentVideos length: ", entertainmentVideos.length);
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = technologyVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
+    }
+    //no need to make request again, simply use the data stored within the array
     if (technologyVideos.length <= 0) {
       vscode.postMessage({
         command: "API_KEY_DETECTED",
         tab: "TECHNOLOGY",
-        text: "Lets get some technology",
+        text: "Lets get some music",
       });
     }
   });
@@ -391,8 +835,61 @@ try {
   //add event listner to gaming
   gaming.addEventListener("click", () => {
     //have a pointer to check what section current on
-    if (currentTabPointer == "gaming") {
-      //Retrieve data from 'gaming specfic array' (No need to change CSS)
+    if (currentTabPointer == "gaming" && gamingVideos.length > 0) {
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = gamingVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
     } else {
       //Retrieve data from 'gaming specfic array' (change CSS)
       currentTabPointer = "gaming";
@@ -400,7 +897,6 @@ try {
       //add currentTab class to the gaming tab
       if (!gaming.classList.contains("currentTab")) {
         gaming.classList.add("currentTab");
-        //remove hover
         gaming.classList.remove("notCurrentTab");
         listOfTabs.forEach((item) => {
           if (!(item.innerHTML.toLowerCase() == currentTabPointer)) {
@@ -413,15 +909,68 @@ try {
           }
         });
       }
-    }
 
-    //when the extension first starts, obviously, no data will be within the array. So when user clicks this tab, make a request and get data. Once we have data, store it in array. No need to make more request for now
-    console.log("Gaming length: ", gamingVideos.length);
+      //retrieve data but make sure to delete previous resources
+      while (videos.children.length > 0) {
+        videos.removeChild(videos.firstElementChild);
+      }
+      let videoArray = gamingVideos.map((item) => {
+        //create video nodes for each
+        let videoNode = document.createElement("div");
+        videoNode.className = "video";
+        //create thumbnail div
+        let thumbnailNode = document.createElement("div");
+        thumbnailNode.className = "thumbnail";
+        //create image for thumbnail
+        let thumbnailImage = document.createElement("img");
+        //Seems like some image URL might not exist, check which exist
+        if (item.thumbnail?.maxres) {
+          thumbnailImage.src = item.thumbnail.maxres.url;
+        } else if (item.thumbnail?.high) {
+          thumbnailImage.src = item.thumbnail.high.url;
+        } else if (item.thumbnail?.medium) {
+          thumbnailImage.src = item.thumbnail.medium.url;
+        } else if (item.thumbnail?.standard) {
+          thumbnailImage.src = item.thumbnail.standard.url;
+        } else {
+          //default
+          thumbnailImage.src = item.thumbnail.default.url;
+        }
+        thumbnailImage.width = 1280;
+        thumbnailImage.height = 720;
+        //append thumbmailImage to thumbnail
+        thumbnailNode.appendChild(thumbnailImage);
+
+        //append thumbnailNode to video
+        videoNode.appendChild(thumbnailNode);
+
+        //create video info node
+        let videoInfoNode = document.createElement("div");
+        videoInfoNode.className = "video-info";
+        //create title node
+        let title = document.createElement("p");
+        title.innerText = item.title;
+        videoInfoNode.appendChild(title);
+
+        //append videoInfoNode to video
+        videoNode.appendChild(videoInfoNode);
+        //add click event
+        videoNode.addEventListener("click", () => {
+          console.log("Video clicked");
+        });
+        return videoNode;
+      });
+      videos.className = "videosStyle";
+      videoArray.forEach((item) => {
+        videos.appendChild(item);
+      });
+    }
+    //no need to make request again, simply use the data stored within the array
     if (gamingVideos.length <= 0) {
       vscode.postMessage({
         command: "API_KEY_DETECTED",
         tab: "GAMING",
-        text: "Lets get some gaming",
+        text: "Lets get some music",
       });
     }
   });

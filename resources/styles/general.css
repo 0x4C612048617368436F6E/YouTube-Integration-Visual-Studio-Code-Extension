@@ -12,6 +12,7 @@ header {
   padding: 10px 16px;
   background-color: #202020;
 }
+
 .youtube_padding {
   margin-right: 5px;
 }
@@ -65,10 +66,6 @@ header {
   transition: background-color 0.2s;
 }
 
-/* .category:hover {
-  background-color: #505050;
-} */
-
 .notCurrentTab:hover {
   background-color: #505050;
 }
@@ -78,49 +75,41 @@ header {
   color: black;
 }
 
+/* ✅ Fixed-size video grid that wraps */
 .videosStyle {
-  display: grid;
-  /* Slightly larger min width, smoother transitions */
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  display: flex;
+  flex-wrap: wrap; /* allow wrapping */
+  justify-content: center; /* center content horizontally */
   gap: 16px;
   padding: 16px;
-  transition: all 0.2s ease-in-out;
-}
-
-/* When the window is narrow, reduce min width gracefully */
-@media (max-width: 800px) {
-  .videosStyle {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
-}
-
-@media (max-width: 500px) {
-  .videosStyle {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-}
-
-.h3Node {
-  font-size: 15px;
-  text-align: center;
-  color: #b7b7b7ff;
+  box-sizing: border-box;
 }
 
 .video {
-  /*background-color: #181818;*/
+  width: 300px; /* fixed width */
+  flex: 0 0 auto; /* don't shrink or grow */
   border-radius: 10px;
   overflow: hidden;
+  background-color: #181818;
+  transition: transform 0.2s ease-in-out;
 }
 
+.video:hover {
+  transform: scale(1.05);
+}
+
+/* Thumbnail */
 .thumbnail {
   background-color: #333;
   height: 150px;
+  width: 100%;
 }
 
 .thumbnail:hover {
   cursor: pointer;
 }
 
+/* Video info */
 .video-info {
   padding: 8px;
   font-size: 14px;
@@ -128,4 +117,24 @@ header {
 
 .video-info:hover {
   cursor: pointer;
+}
+
+/* Text inside video */
+.h3Node {
+  font-size: 15px;
+  text-align: center;
+  color: #b7b7b7ff;
+}
+
+/* ✅ Responsive adjustments for smaller screens */
+@media (max-width: 800px) {
+  /*.video {
+    width: 200px;
+  }*/
+}
+
+@media (max-width: 500px) {
+  /*.video {
+    width: 160px;
+  }*/
 }
