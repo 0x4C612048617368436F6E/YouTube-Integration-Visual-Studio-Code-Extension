@@ -80,8 +80,8 @@ try {
         let textNode = undefined;
 
         //remove all child element if any
-        for (let i = 0; i < videos.children.length; i++) {
-          videos.removeChild(videos.children[i]);
+        while (videos.children.length > 0) {
+          videos.removeChild(videos.firstElementChild);
         }
 
         //check if token is undefined
@@ -119,8 +119,8 @@ try {
         }
       case "RESOURCE":
         //reset textNode -  delete all children element videos
-        for (let i = 0; i < videos.children.length; i++) {
-          videos.removeChild(videos.children[i]);
+        while (videos.children.length > 0) {
+          videos.removeChild(videos.firstElementChild);
         }
 
         //add the CSS properties to parent div that holds the video
@@ -199,7 +199,60 @@ try {
           videoNode.appendChild(videoInfoNode);
           //add click event
           videoNode.addEventListener("click", () => {
-            console.log("Video clicked");
+            //need to get information about the resource we clicked on
+            const videoId = item.id;
+            console.log(videoId);
+            //Next thing we are going to do is when user clicks on the video, display the video at the very top, and the other videos that were shown before should be below except the video that we click (Can use the id to check this, since id is unique for each of the video) - Actually will come back to this, as this will take longer
+
+            //Instead what we will do is just remove all the elements within the video and then add the Youtube player API stuff.
+            while (videos.children.length > 0) {
+              videos.removeChild(videos.firstElementChild);
+            }
+            //create div
+            let createDiv = document.createElement("div");
+            createDiv.id = "player";
+
+            let tag = document.createElement("script");
+
+            tag.src = "https://www.youtube.com/iframe_api";
+            let firstScriptTag = document.getElementsByTagName("script")[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+            let player;
+            window.onYouTubeIframeAPIReady = function () {
+              player = new YT.Player("player", {
+                height: "390",
+                width: "640",
+                videoId: "M7lc1UVf-VE",
+                playerVars: {
+                  playsinline: 1,
+                },
+                events: {
+                  onReady: onPlayerReady,
+                  onStateChange: onPlayerStateChange,
+                },
+              });
+            };
+
+            // 4. The API will call this function when the video player is ready.
+            function onPlayerReady(event) {
+              event.target.playVideo();
+            }
+
+            // 5. The API calls this function when the player's state changes.
+            //    The function indicates that when playing a video (state=1),
+            //    the player should play for six seconds and then stop.
+            var done = false;
+            function onPlayerStateChange(event) {
+              if (event.data == YT.PlayerState.PLAYING && !done) {
+                setTimeout(stopVideo, 6000);
+                done = true;
+              }
+            }
+            function stopVideo() {
+              player.stopVideo();
+            }
+            videos.appendChild(createDiv);
           });
           return videoNode;
         });

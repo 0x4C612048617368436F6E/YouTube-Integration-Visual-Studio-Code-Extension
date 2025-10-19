@@ -10,6 +10,7 @@ This extension comes with several features including:
 2. Switch between tabs -<img src="./images/switch-between-tabs.png"/>
 3. Save state when extension goes out of view - To Do
 4. Uses local storage to store data - To Do
+5. Play videos
 
 ## Requirements
 

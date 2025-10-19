@@ -22,11 +22,11 @@
       },
       {
         "command": "youtubeintegration.GETKEY",
-        "title": ""
+        "title": "Getkey"
       },
       {
         "command": "youtubeintegration.SETKEY",
-        "title": ""
+        "title": "SetKey"
       }
     ],
     "views": {
